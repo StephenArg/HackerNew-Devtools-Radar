@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Community {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+
+  sources Source[]
+  reports Report[]
+}
+
+model Source {
+  id               String   @id @default(cuid())
+  communityId      String
+  platform         String
+  externalId       String
+  url              String
+  title            String
+  author           String?
+  createdAtExternal DateTime
+  points           Int?
+  numComments      Int?
+  relevanceScore    Float?
+  relevanceCategory String?
+  relevanceReason   String?
+  createdAt        DateTime @default(now())
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  documents Document[]
+
+  @@unique([platform, externalId])
+  @@index([communityId])
+  @@index([relevanceCategory])
+}
+
+model Document {
+  id               String   @id @default(cuid())
+  sourceId         String
+  type             String
+  text             String
+  url              String?
+  author           String?
+  createdAtExternal DateTime
+  metadata         Json?
+  createdAt        DateTime @default(now())
+
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  chunks Chunk[]
+
+  @@index([sourceId])
+}
+
+model Chunk {
+  id             String   @id @default(cuid())
+  documentId     String
+  text           String
+  embeddingJson  String
+  // pgvector column managed via raw SQL migrations. Declared here as Unsupported
+  // so Prisma is aware of it and never generates a migration to drop it again.
+  embedding      Unsupported("vector(1536)")?
+  topic          String
+  x              Float
+  y              Float
+  retrievalCount Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  document        Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  retrievalEvents RetrievalEvent[]
+
+  @@index([documentId])
+  @@index([topic])
+  @@index([retrievalCount])
+}
+
+model RetrievalEvent {
+  id         String   @id @default(cuid())
+  chunkId    String
+  query      String
+  similarity Float
+  reportId   String?
+  createdAt  DateTime @default(now())
+
+  chunk  Chunk   @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  report Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@index([chunkId])
+  @@index([reportId])
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  communityId String
+  mode        String
+  title       String
+  contentJson Json
+  markdown    String
+  createdAt   DateTime @default(now())
+
+  community       Community        @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  retrievalEvents RetrievalEvent[]
+
+  @@index([communityId, mode])
+  @@index([createdAt])
+}
+
+model RubricJudgeCache {
+  id              String   @id @default(cuid())
+  ragReportId     String
+  noRagReportId   String
+  retrievedChunks Int
+  judgeScores     Json
+  createdAt       DateTime @default(now())
+
+  @@unique([ragReportId, noRagReportId])
+  @@index([ragReportId])
+  @@index([noRagReportId])
+}
