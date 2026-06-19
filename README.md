@@ -68,7 +68,8 @@ behind `RELEVANCE_USE_EMBEDDINGS=true`).
 ### Quick Start
 
 ```bash
-cp .env.example .env
+# cd into repo
+cp .env.example .env  # fill in the .env file with the correct details 
 docker compose up -d
 pnpm install
 pnpm prisma migrate dev
